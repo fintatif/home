@@ -13,10 +13,8 @@ html, body { height: 100%; margin: 0; background: #0b1323; color: #dce9e3; font:
 </style>
 </head>
 <body>
-<div id="m"><div id="t">Membuka Fintatif Home...</div></div>
+<div id="m"></div>
 <script>
-// Pemuat Fintatif Home. Kode aplikasi disimpan di Apps Script, bukan di repo publik ini.
-// Server dipanggil lewat POST tanpa cookie, jadi tidak kena pengalihan /macros/u/N.
 (function () {
   var ok = true;
   if (window.top !== window.self) { try { ok = window.top.location.origin === location.origin; } catch (e) { ok = false; } }
@@ -45,7 +43,6 @@ html, body { height: 100%; margin: 0; background: #0b1323; color: #dce9e3; font:
       return "'sha256-" + btoa(String.fromCharCode.apply(null, new Uint8Array(b))) + "'";
     });
   }
-  // CSP dihitung dari kode yang diterima, supaya script lain yang tersisip ke halaman tetap ditolak browser.
   function show(html) {
     html = String(html).replace(/\r\n?/g, '\n');
     var at = html.indexOf(CHARSET);
@@ -75,7 +72,6 @@ html, body { height: 100%; margin: 0; background: #0b1323; color: #dce9e3; font:
   }
   readSaved().then(function (rec) {
     if (!rec || !rec.html) return fromServer(1);
-    // Buka salinan di perangkat dulu supaya cepat, versi baru dipakai pada pembukaan berikutnya.
     call(rec.v).then(function (fresh) { if (fresh.html) return save(fresh); }).catch(function () { /* coba lagi saat dibuka berikutnya */ });
     return show(rec.html).catch(function () { return fromServer(1); });
   });
