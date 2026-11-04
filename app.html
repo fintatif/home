@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2231">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Fintatif Home</title>
+<style>
+html, body { height: 100%; margin: 0; background: #0b1323; color: #dce9e3; font: 15px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+#m { min-height: 100%; display: grid; place-items: center; padding: 24px; box-sizing: border-box; text-align: center; }
+#m button { margin-top: 14px; padding: 11px 20px; border: 0; border-radius: 10px; background: #10b981; color: #06281d; font: inherit; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="m"><div id="t">Membuka Fintatif Home...</div></div>
+<script>
+// Pemuat Fintatif Home. Kode aplikasi disimpan di Apps Script, bukan di repo publik ini.
+// Server dipanggil lewat POST tanpa cookie, jadi tidak kena pengalihan /macros/u/N.
+(function () {
+  var ok = true;
+  if (window.top !== window.self) { try { ok = window.top.location.origin === location.origin; } catch (e) { ok = false; } }
+  if (!ok) { document.documentElement.style.display = 'none'; try { window.top.location.replace(location.href); } catch (e) { /* tetap tersembunyi */ } return; }
+
+  var API = 'https://script.google.com/macros/s/AKfycbwB7wlIZuizUxb5A0wM1ptXPMj6M65qIc5t3TYgTb8nOr1H0Y7KVZU4WEoPgi8SWqxaDw/exec';
+  var STORE = 'fhome-code-v1', ITEM = 'kode-aplikasi';
+  var POLICY = "default-src 'none'; script-src @@HASHES@@ https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js https://accounts.google.com https://apis.google.com; style-src 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css https://accounts.google.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://*.google.com https://iili.io; connect-src https://script.google.com https://script.googleusercontent.com https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://content.googleapis.com https://accounts.google.com https://cdn.jsdelivr.net; frame-src https://accounts.google.com https://docs.google.com https://drive.google.com https://content.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests";
+  var CHARSET = '<meta charset="UTF-8">';
+
+  function call(have) {
+    return fetch(API, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: 'wpAppCode', args: [have || ''] }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (!d || !d.ok || !d.result || !d.result.v) throw new Error('Server tidak mengirim aplikasi.'); return d.result; });
+  }
+  function readSaved() {
+    if (!window.caches) return Promise.resolve(null);
+    return caches.open(STORE).then(function (c) { return c.match(ITEM); }).then(function (r) { return r ? r.json() : null; }).catch(function () { return null; });
+  }
+  function save(rec) {
+    if (!window.caches || !rec.html) return Promise.resolve();
+    return caches.open(STORE).then(function (c) { return c.put(ITEM, new Response(JSON.stringify({ v: rec.v, html: rec.html }))); }).catch(function () { /* tanpa simpanan, dibuka dari server lagi */ });
+  }
+  function hash(text) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (b) {
+      return "'sha256-" + btoa(String.fromCharCode.apply(null, new Uint8Array(b))) + "'";
+    });
+  }
+  // CSP dihitung dari kode yang diterima, supaya script lain yang tersisip ke halaman tetap ditolak browser.
+  function show(html) {
+    html = String(html).replace(/\r\n?/g, '\n');
+    var at = html.indexOf(CHARSET);
+    if (at < 0) return Promise.reject(new Error('Kode aplikasi tidak dikenal.'));
+    var jobs = [], re = /<script>([\s\S]*?)<\/script>/g, m;
+    while ((m = re.exec(html))) jobs.push(hash(m[1]));
+    return Promise.all(jobs).then(function (hashes) {
+      var head = CHARSET + '\n<meta http-equiv="Content-Security-Policy" content="' + POLICY.replace('@@HASHES@@', hashes.join(' ')) + '">\n<meta name="referrer" content="strict-origin-when-cross-origin">';
+      var out = html.slice(0, at) + head + html.slice(at + CHARSET.length);
+      document.open();
+      document.write(out);
+      document.close();
+    });
+  }
+  function fail() {
+    document.getElementById('m').innerHTML = '<div><div>Fintatif Home belum bisa dibuka. Cek koneksi internetmu, lalu coba lagi.</div><button type="button" id="r">Coba lagi</button></div>';
+    document.getElementById('r').onclick = function () { location.reload(); };
+  }
+  function fromServer(tries) {
+    return call('').then(function (rec) {
+      if (!rec.html) throw new Error('Server tidak mengirim aplikasi.');
+      return save(rec).then(function () { return show(rec.html); });
+    }).catch(function () {
+      if (tries > 0) return new Promise(function (res) { setTimeout(res, 1500); }).then(function () { return fromServer(tries - 1); });
+      fail();
+    });
+  }
+  readSaved().then(function (rec) {
+    if (!rec || !rec.html) return fromServer(1);
+    // Buka salinan di perangkat dulu supaya cepat, versi baru dipakai pada pembukaan berikutnya.
+    call(rec.v).then(function (fresh) { if (fresh.html) return save(fresh); }).catch(function () { /* coba lagi saat dibuka berikutnya */ });
+    return show(rec.html).catch(function () { return fromServer(1); });
+  });
+})();
+</script>
+</body>
+</html>
