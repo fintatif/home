@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="robots" content="noindex">
+<title>Verifikasi keamanan</title>
+<style>html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }</style>
+</head>
+<body>
+<div id="ts"></div>
+<script>
+// Pemeriksa bot untuk halaman daftar Fintatif Home dan Wedding. Token dikirim hanya ke halaman yang membuka file ini.
+(function () {
+  var allowed = /^https:\/\/(home\.fintatif\.web\.id|n-[a-z0-9-]+-script\.googleusercontent\.com)$/;
+  var anc = location.ancestorOrigins && location.ancestorOrigins.length ? location.ancestorOrigins[0] : '';
+  if (!anc && document.referrer) { try { anc = new URL(document.referrer).origin; } catch (e) {} }
+  if (window.parent === window || (anc && !allowed.test(anc))) return;
+  var send = function (token) { window.parent.postMessage({ ft: 'ts', token: token || '' }, anc || '*'); };
+  window.onTs = function () {
+    window.turnstile.render('#ts', {
+      sitekey: '0x4AAAAAAF0YzJacW_L_3gPC',
+      theme: 'dark',
+      size: 'flexible',
+      callback: send,
+      'expired-callback': function () { send(''); },
+      'error-callback': function () { send(''); }
+    });
+  };
+  var s = document.createElement('script');
+  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTs';
+  s.async = true;
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>
